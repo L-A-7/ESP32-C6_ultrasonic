@@ -1,0 +1,98 @@
+<svg viewBox="0 0 1040 740" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace">
+  <rect x="0" y="0" width="1040" height="740" fill="#eef1f0" />
+
+  <!-- faint grid paper -->
+  <g stroke="#4a5768" stroke-opacity="0.12" stroke-width="1">
+    <path d="M0,20 H1040 M0,60 H1040 M0,100 H1040 M0,140 H1040 M0,180 H1040 M0,220 H1040 M0,260 H1040 M0,300 H1040 M0,340 H1040 M0,380 H1040 M0,420 H1040 M0,460 H1040 M0,500 H1040 M0,540 H1040 M0,580 H1040 M0,620 H1040 M0,660 H1040 M0,700 H1040" />
+    <path d="M20,0 V740 M60,0 V740 M100,0 V740 M140,0 V740 M180,0 V740 M220,0 V740 M260,0 V740 M300,0 V740 M340,0 V740 M380,0 V740 M420,0 V740 M460,0 V740 M500,0 V740 M540,0 V740 M580,0 V740 M620,0 V740 M660,0 V740 M700,0 V740 M740,0 V740 M780,0 V740 M820,0 V740 M860,0 V740 M900,0 V740 M940,0 V740 M980,0 V740" />
+  </g>
+
+  <text x="40" y="44" fill="#1a2330" font-weight="700" font-size="25" letter-spacing="0.01em">V1 Wiring — Water Tank Level Sensor</text>
+  <text x="40" y="68" fill="#1a2330" fill-opacity="0.6" font-size="15" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">XIAO ESP32C6 · HC-SR04 · battery sense</text>
+
+  <!-- power / ground bus rails -->
+  <line x1="60" y1="130" x2="990" y2="130" stroke="#c0392b" stroke-width="3" />
+  <text x="16" y="124" fill="#c0392b" font-weight="700" font-size="15" letter-spacing="0.03em">BAT+</text>
+  <line x1="60" y1="610" x2="990" y2="610" stroke="#5b6472" stroke-width="3" />
+  <text x="20" y="630" fill="#5b6472" font-weight="700" font-size="15" letter-spacing="0.03em">GND</text>
+
+  <!-- battery symbol -->
+  <line x1="60" y1="130" x2="60" y2="300" stroke="#c0392b" stroke-width="3" />
+  <line x1="28" y1="300" x2="92" y2="300" stroke="#1a2330" stroke-width="2.5" />
+  <line x1="44" y1="317" x2="76" y2="317" stroke="#1a2330" stroke-width="7" />
+  <line x1="60" y1="317" x2="60" y2="610" stroke="#5b6472" stroke-width="3" />
+  <text x="100" y="312" fill="#1a2330" fill-opacity="0.8" font-size="14">Li-ion 3.7V</text>
+
+  <!-- XIAO ESP32C6 -->
+  <rect x="430" y="200" width="160" height="340" rx="12" fill="#ffffff" stroke="#4a5768" stroke-width="2" />
+  <text x="510" y="236" fill="#1a2330" font-weight="700" font-size="19" letter-spacing="0.02em" text-anchor="middle">XIAO ESP32C6</text>
+
+  <line x1="510" y1="200" x2="510" y2="130" stroke="#c0392b" stroke-width="3" />
+  <text x="522" y="168" fill="#1a2330" fill-opacity="0.8" font-size="14">BAT+</text>
+  <line x1="510" y1="540" x2="510" y2="610" stroke="#5b6472" stroke-width="3" />
+  <text x="522" y="600" fill="#1a2330" fill-opacity="0.8" font-size="14">GND</text>
+
+  <!-- D6 / TRIG -->
+  <line x1="590" y1="260" x2="760" y2="260" stroke="#2f6fed" stroke-width="3" />
+  <text x="598" y="252" fill="#1a2330" fill-opacity="0.8" font-size="14">GPIO16 / D6</text>
+
+  <!-- D7 / ECHO (via divider) -->
+  <text x="598" y="302" fill="#1a2330" fill-opacity="0.8" font-size="14">GPIO17 / D7</text>
+  <path d="M680,358 L610,358 L610,310 L590,310" fill="none" stroke="#c9740c" stroke-width="3" stroke-dasharray="7 5" />
+
+  <!-- D0 / battery sense (via divider) -->
+  <text x="442" y="396" fill="#1a2330" fill-opacity="0.8" font-size="14">ADC1 / D0</text>
+  <path d="M350,238 L400,238 L400,400 L430,400" fill="none" stroke="#7c4fd1" stroke-width="3" stroke-dasharray="7 5" />
+
+  <!-- onboard LED note (internal, no external wire) -->
+  <circle cx="460" cy="470" r="5" fill="#1a2330" />
+  <text x="474" y="475" fill="#1a2330" fill-opacity="0.8" font-size="14">D15 → onboard LED</text>
+
+  <!-- HC-SR04 -->
+  <rect x="760" y="225" width="210" height="170" rx="10" fill="#ffffff" stroke="#4a5768" stroke-width="2" />
+  <text x="865" y="260" fill="#1a2330" font-weight="700" font-size="19" letter-spacing="0.02em" text-anchor="middle">HC-SR04</text>
+  <text x="865" y="280" fill="#1a2330" fill-opacity="0.55" font-size="14" text-anchor="middle">ultrasonic sensor</text>
+
+  <line x1="800" y1="225" x2="800" y2="130" stroke="#c0392b" stroke-width="3" />
+  <text x="810" y="184" fill="#1a2330" fill-opacity="0.8" font-size="14">VCC</text>
+  <line x1="800" y1="395" x2="800" y2="610" stroke="#5b6472" stroke-width="3" />
+  <text x="810" y="465" fill="#1a2330" fill-opacity="0.8" font-size="14">GND</text>
+  <text x="768" y="254" fill="#1a2330" fill-opacity="0.8" font-size="14">TRIG</text>
+  <line x1="760" y1="310" x2="680" y2="310" stroke="#c9740c" stroke-width="3" />
+  <text x="768" y="304" fill="#1a2330" fill-opacity="0.8" font-size="14">ECHO</text>
+
+  <!-- echo divider: R1, gap wire (tap here), R2 -->
+  <rect x="670" y="310" width="20" height="38" fill="#ffffff" stroke="#4a5768" stroke-width="2" />
+  <text x="698" y="335" fill="#1a2330" font-size="14">R1 · 1kΩ</text>
+  <line x1="680" y1="348" x2="680" y2="368" stroke="#c9740c" stroke-width="3" stroke-dasharray="7 5" />
+  <circle cx="680" cy="358" r="4" fill="#1a2330" />
+  <rect x="670" y="368" width="20" height="38" fill="#ffffff" stroke="#4a5768" stroke-width="2" />
+  <text x="698" y="393" fill="#1a2330" font-size="14">R2 · 3kΩ</text>
+  <line x1="680" y1="406" x2="680" y2="610" stroke="#5b6472" stroke-width="3" />
+
+  <!-- battery-sense divider: R3, gap wire (tap here), R4 -->
+  <line x1="350" y1="130" x2="350" y2="190" stroke="#c0392b" stroke-width="3" />
+  <rect x="340" y="190" width="20" height="38" fill="#ffffff" stroke="#4a5768" stroke-width="2" />
+  <text x="368" y="215" fill="#1a2330" font-size="14">R3 · 1MΩ</text>
+  <line x1="350" y1="228" x2="350" y2="248" stroke="#7c4fd1" stroke-width="3" stroke-dasharray="7 5" />
+  <circle cx="350" cy="238" r="4" fill="#1a2330" />
+  <rect x="340" y="248" width="20" height="38" fill="#ffffff" stroke="#4a5768" stroke-width="2" />
+  <text x="368" y="273" fill="#1a2330" font-size="14">R4 · 1MΩ</text>
+  <line x1="350" y1="286" x2="350" y2="610" stroke="#5b6472" stroke-width="3" />
+
+  <!-- legend -->
+  <line x1="60" y1="650" x2="100" y2="650" stroke="#c0392b" stroke-width="3" />
+  <text x="112" y="655" fill="#1a2330" font-size="15" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">Power</text>
+  <line x1="60" y1="680" x2="100" y2="680" stroke="#5b6472" stroke-width="3" />
+  <text x="112" y="685" fill="#1a2330" font-size="15" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">Ground</text>
+
+  <line x1="320" y1="650" x2="360" y2="650" stroke="#2f6fed" stroke-width="3" />
+  <text x="372" y="655" fill="#1a2330" font-size="15" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">TRIG (out)</text>
+  <line x1="320" y1="680" x2="360" y2="680" stroke="#c9740c" stroke-width="3" />
+  <text x="372" y="685" fill="#1a2330" font-size="15" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">Echo (raw)</text>
+
+  <line x1="600" y1="650" x2="640" y2="650" stroke="#7c4fd1" stroke-width="3" stroke-dasharray="7 5" />
+  <text x="652" y="655" fill="#1a2330" font-size="15" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">Batt. sense (÷)</text>
+  <line x1="600" y1="680" x2="640" y2="680" stroke="#c9740c" stroke-width="3" stroke-dasharray="7 5" />
+  <text x="652" y="685" fill="#1a2330" font-size="15" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif">Echo (÷)</text>
+</svg>
