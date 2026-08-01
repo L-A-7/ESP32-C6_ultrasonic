@@ -26,14 +26,14 @@
 #define BATTERY_DIVIDER_RATIO   2.051f
 
 // --- Timing ---
-#define DEFAULT_WAKEUP_PERIOD_MIN      15
+#define DEFAULT_WAKEUP_PERIOD_MIN      1
 #define MIN_WAKEUP_PERIOD_MIN           1
 #define MAX_WAKEUP_PERIOD_MIN           1440  // 24h
 
 // --- Measurement ---
 #define DEFAULT_AVG_SAMPLE_COUNT 30  // median+3sigma-filtered mean of N HC-SR04 readings per wake
 #define MIN_AVG_SAMPLE_COUNT     1
-#define MAX_AVG_SAMPLE_COUNT     1000  // config-field validation range; see HCSR04_MAX_SAMPLES
+#define MAX_AVG_SAMPLE_COUNT     100  // config-field validation range; see HCSR04_MAX_SAMPLES
                                         // in sensor_hcsr04.c for the firmware's tighter sampling cap
 
 // Mirrors the server's plausibility check (server-handoff/device.md): a
@@ -54,4 +54,4 @@
 #define CHIP_TEMP_SENTINEL_C  -999.0f  // sensor read failed
 
 // --- Pending-measurement ring buffer (survives WiFi outages) ---
-#define PENDING_BUFFER_SIZE     192  // 48h of outage at 15 min/measurement
+#define PENDING_BUFFER_SIZE     192  // 3.2h of outage at DEFAULT_WAKEUP_PERIOD_MIN's 1 min/measurement
