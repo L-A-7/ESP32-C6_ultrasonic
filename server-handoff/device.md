@@ -51,6 +51,19 @@ corresponding firmware ships, or every POST will 422 and — per the Retry
 semantics below — permanently wedge the device's backlog, since a rejected
 batch is never acknowledged/cleared.
 
+**TEMPORARY diagnostic field, not yet flashed to the real device:
+`readings[].samples_cm`.** Gated behind `DEBUG_SEND_RAW_SAMPLES` in the
+firmware's `config.h`. When enabled, the *last* entry in `readings` (the
+current wake, never a backlog entry) carries an extra array of the raw,
+pre-outlier-rejection HC-SR04 samples for that wake — e.g.
+`"samples_cm": [50.52, 50.48, 61.90, 50.55, ...]`, `avg_sample_count` values
+long (fewer if some individual pings timed out). This exists to let raw
+sample distributions be studied offline to design a better outlier filter —
+it's meant to be flipped off again afterward, so the server should tolerate
+(accept and, ideally, just log/store raw rather than fully model) an
+unrecognized `samples_cm` key the same way it needs to tolerate any other
+unknown field, per the note above.
+
 | Field | Type | Notes |
 |---|---|---|
 | `config.wakeup_period_min` | uint, minutes | Device's *current* wake interval (echoes back what it's running, doesn't necessarily match what you last told it — see Response below). |
@@ -61,6 +74,7 @@ batch is never acknowledged/cleared.
 | `readings[].distance_std_cm` | float, 2 decimals | RMS deviation from the mean across the `avg_sample_count` HC-SR04 readings taken that wake, computed after the same median+3σ outlier rejection used for `distance_cm` (so it reflects the spread of the samples actually averaged in, not the raw noise floor). Sensor's physical accuracy is ~0.3cm, so values well below that reflect measurement consistency, not calibrated precision. **Shares `distance_cm`'s sentinel: `-1.00` whenever `distance_cm` is `-1.00`** (no echo / implausible range that wake) — treat both fields as sentinel together. |
 | `readings[].battery_mv` | int | Battery voltage in mV (~3000-4200 for the single-cell LiPo in use). |
 | `readings[].chip_temp_c` | float, 2 decimals | ESP32-C6's internal **die/package temperature, not ambient** — self-heating from WiFi TX and CPU load typically reads several °C above actual ambient air/water temperature. Diagnostic/device-health signal only; not a substitute for a real ambient sensor. **Sentinel value `-999.00` means the on-chip sensor read failed** that wake (out of its configured -10..80°C range, or a driver error) — filter/flag these like the distance sentinel. |
+| `readings[].samples_cm` | array of float, 2 decimals | **TEMPORARY, diagnostic-only** (see note above) — only present on the current-wake reading, never on backlog entries, and only when the firmware's `DEBUG_SEND_RAW_SAMPLES` is enabled. Raw per-ping distances before outlier rejection/averaging; empty/absent if every ping that wake timed out. |
 
 ### Timestamp reconstruction
 
@@ -100,7 +114,7 @@ feedback, only a device-side log line):
 | Field | Range | Out-of-range behavior |
 |---|---|---|
 | `wakeup_period_min` | 1 – 1440 (24h) | Ignored, device keeps its current value |
-| `avg_sample_count` | 1 – 1000 | Ignored, device keeps its current value (in practice the device also hard-caps actual sampling at 100 internally regardless of what's configured, for battery/timing reasons) |
+| `avg_sample_count` | 1 – 100 | Ignored, device keeps its current value (matches the device's actual hard sampling cap, for battery/timing reasons) |
 
 Each field is validated and applied independently — a valid `wakeup_period_min`
 with an invalid `avg_sample_count` still applies the `wakeup_period_min` change.

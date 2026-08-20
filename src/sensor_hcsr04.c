@@ -16,7 +16,7 @@
 // config validation range (MAX_AVG_SAMPLE_COUNT in config.h, up to 1000):
 // at ~65ms/sample, 100 samples is ~6.5s of ranging, which is already a lot
 // relative to the WiFi phase. n is clamped to this regardless of config.
-#define MAX_SAMPLES              100
+#define MAX_SAMPLES              HCSR04_MAX_SAMPLES
 #define OUTLIER_SIGMA_MULT      3.0f
 
 static bool s_initialized = false;
@@ -127,7 +127,8 @@ float hcsr04_filter_samples(const float *samples, int count, float *out_std_cm) 
     return clean_mean;
 }
 
-bool hcsr04_measure_filtered_cm(int n, float *distance_cm, float *out_std_cm) {
+bool hcsr04_measure_filtered_cm(int n, float *distance_cm, float *out_std_cm,
+                                 float *out_samples, int *out_sample_count) {
     if (n < 1) {
         n = 1;
     } else if (n > MAX_SAMPLES) {
@@ -145,6 +146,11 @@ bool hcsr04_measure_filtered_cm(int n, float *distance_cm, float *out_std_cm) {
         if (i < n - 1) {
             vTaskDelay(pdMS_TO_TICKS(SAMPLE_SPACING_MS));
         }
+    }
+
+    if (out_samples) {
+        memcpy(out_samples, samples, valid * sizeof(float));
+        *out_sample_count = valid;
     }
 
     if (valid == 0) {

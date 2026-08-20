@@ -170,10 +170,15 @@ static void jw_appendf(json_writer_t *w, const char *fmt, ...) {
 
 // readings: backlog oldest-first, current last. Server infers each entry's
 // time by counting back from receipt time in wakeup_period_min steps.
+// raw_samples/raw_sample_count (may be NULL/0) attach a "samples_cm" array
+// to the current reading only -- backlog entries never have raw samples
+// available (not persisted, see storage.h's pending_measurement_t).
 static char *build_payload(const pending_measurement_t *current,
                             const pending_measurement_t *backlog, int backlog_count,
-                            const tank_config_t *cfg, int rssi, size_t *out_len) {
-    size_t cap = 200 + (size_t)(backlog_count + 1) * 100;
+                            const tank_config_t *cfg, int rssi,
+                            const float *raw_samples, int raw_sample_count,
+                            size_t *out_len) {
+    size_t cap = 200 + (size_t)(backlog_count + 1) * 100 + (size_t)raw_sample_count * 8;
     char *buf = malloc(cap);
     if (!buf) {
         return NULL;
@@ -188,9 +193,19 @@ static char *build_payload(const pending_measurement_t *current,
                    backlog[i].distance_cm, backlog[i].distance_std_cm,
                    backlog[i].battery_mv, backlog[i].chip_temp_c);
     }
-    jw_appendf(&w, "{\"distance_cm\":%.2f,\"distance_std_cm\":%.2f,\"battery_mv\":%d,\"chip_temp_c\":%.2f}]}",
+    jw_appendf(&w, "{\"distance_cm\":%.2f,\"distance_std_cm\":%.2f,\"battery_mv\":%d,\"chip_temp_c\":%.2f",
                current->distance_cm, current->distance_std_cm,
                current->battery_mv, current->chip_temp_c);
+#if DEBUG_SEND_RAW_SAMPLES
+    if (raw_samples && raw_sample_count > 0) {
+        jw_appendf(&w, ",\"samples_cm\":[");
+        for (int i = 0; i < raw_sample_count; i++) {
+            jw_appendf(&w, i == 0 ? "%.2f" : ",%.2f", raw_samples[i]);
+        }
+        jw_appendf(&w, "]");
+    }
+#endif
+    jw_appendf(&w, "}]}");
 
     *out_len = w.len;
     return buf;
@@ -243,10 +258,12 @@ static bool apply_validated_u32(const char *json, const char *key,
 bool wifi_post_measurement(const pending_measurement_t *current,
                             const pending_measurement_t *backlog, int backlog_count,
                             const tank_config_t *current_cfg,
+                            const float *raw_samples, int raw_sample_count,
                             tank_config_t *out_cfg, bool *out_cfg_updated) {
     size_t payload_len;
     char *payload = build_payload(current, backlog, backlog_count, current_cfg,
-                                   wifi_get_rssi(), &payload_len);
+                                   wifi_get_rssi(), raw_samples, raw_sample_count,
+                                   &payload_len);
     if (!payload) {
         ESP_LOGW(TAG, "payload allocation failed");
         return false;

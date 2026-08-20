@@ -35,7 +35,17 @@ void app_main(void) {
     pending_measurement_t m = {0};
     m.battery_mv = battery_read_mv();
     m.chip_temp_c = chip_temp_read_c();
-    if (!hcsr04_measure_filtered_cm(cfg.avg_sample_count, &m.distance_cm, &m.distance_std_cm)) {
+
+    // DEBUG_SEND_RAW_SAMPLES (config.h): captures this wake's pre-filter
+    // samples so they can be attached to the POST for offline filter-design
+    // analysis. Temporary -- see config.h's comment on the flag.
+    static float s_raw_samples[HCSR04_MAX_SAMPLES];
+    int raw_sample_count = 0;
+    float *raw_samples_out = DEBUG_SEND_RAW_SAMPLES ? s_raw_samples : NULL;
+    int *raw_sample_count_out = DEBUG_SEND_RAW_SAMPLES ? &raw_sample_count : NULL;
+
+    if (!hcsr04_measure_filtered_cm(cfg.avg_sample_count, &m.distance_cm, &m.distance_std_cm,
+                                     raw_samples_out, raw_sample_count_out)) {
         ESP_LOGW(TAG, "no echo (timeout) -- sending sentinel distance");
         m.distance_cm = DISTANCE_SENTINEL_CM;
         m.distance_std_cm = DISTANCE_SENTINEL_CM;
@@ -62,7 +72,9 @@ void app_main(void) {
 
         tank_config_t new_cfg;
         bool cfg_updated = false;
-        posted = wifi_post_measurement(&m, backlog, backlog_count, &cfg, &new_cfg, &cfg_updated);
+        posted = wifi_post_measurement(&m, backlog, backlog_count, &cfg,
+                                        s_raw_samples, raw_sample_count,
+                                        &new_cfg, &cfg_updated);
         ESP_LOGI(TAG, "POST %s", posted ? "ok" : "failed");
 
         if (posted) {

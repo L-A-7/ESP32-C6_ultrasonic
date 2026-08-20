@@ -36,6 +36,14 @@
 #define MAX_AVG_SAMPLE_COUNT     100  // config-field validation range; see HCSR04_MAX_SAMPLES
                                         // in sensor_hcsr04.c for the firmware's tighter sampling cap
 
+// Diagnostic capture: when enabled, the current wake's raw (pre-outlier-
+// -rejection) HC-SR04 samples are attached to the POST as
+// "readings[current].samples_cm" so they can be studied offline to design a
+// better outlier filter. Backlog entries never carry raw samples (only the
+// aggregate is persisted to NVS). TEMPORARY -- flip back to 0 once the
+// filter redesign is done, this isn't meant to ship permanently.
+#define DEBUG_SEND_RAW_SAMPLES   1
+
 // Mirrors the server's plausibility check (server-handoff/device.md): a
 // reading outside this range can never be a real tank distance, so it's
 // swapped for the sentinel below instead of being sent/queued as-is. Without
