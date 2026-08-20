@@ -17,6 +17,8 @@
 // at ~65ms/sample, 100 samples is ~6.5s of ranging, which is already a lot
 // relative to the WiFi phase. n is clamped to this regardless of config.
 #define MAX_SAMPLES              HCSR04_MAX_SAMPLES
+// Rejection threshold width, in MAD-derived sigma-equivalents (see
+// hcsr04_filter_samples -- MAD_TO_SIGMA/MAD_ABS_FLOOR_CM there).
 #define OUTLIER_SIGMA_MULT      3.0f
 
 static bool s_initialized = false;
@@ -60,6 +62,29 @@ bool hcsr04_measure_cm(float *distance_cm) {
     return true;
 }
 
+// Sorts arr in place (insertion sort -- count is small, <= MAX_SAMPLES) and
+// returns its middle element (upper median for even count).
+static float median_inplace(float *arr, int count) {
+    for (int i = 1; i < count; i++) {
+        float key = arr[i];
+        int j = i - 1;
+        while (j >= 0 && arr[j] > key) {
+            arr[j + 1] = arr[j];
+            j--;
+        }
+        arr[j + 1] = key;
+    }
+    return arr[count / 2];
+}
+
+// Consistency constant that scales MAD (median absolute deviation) to be
+// comparable to a normal distribution's sigma, for well-behaved data.
+#define MAD_TO_SIGMA       1.4826f
+// Floor on the rejection threshold. The sensor's real per-ping noise is
+// sub-mm, so MAD alone can collapse to ~0 on a clean wake -- without a
+// floor that would reject everything but an exact median match.
+#define MAD_ABS_FLOOR_CM   1.0f
+
 float hcsr04_filter_samples(const float *samples, int count, float *out_std_cm) {
     if (count <= 1) {
         if (out_std_cm) {
@@ -74,36 +99,31 @@ float hcsr04_filter_samples(const float *samples, int count, float *out_std_cm) 
     // median: robust center, unaffected by the outliers we're about to reject
     float sorted[MAX_SAMPLES];
     memcpy(sorted, samples, count * sizeof(float));
-    for (int i = 1; i < count; i++) {
-        float key = sorted[i];
-        int j = i - 1;
-        while (j >= 0 && sorted[j] > key) {
-            sorted[j + 1] = sorted[j];
-            j--;
-        }
-        sorted[j + 1] = key;
-    }
-    float median = sorted[count / 2];
+    float median = median_inplace(sorted, count);
 
-    // sigma: RMS deviation from the mean
-    float sum = 0;
+    // MAD: robust spread, computed from the median rather than the mean, so
+    // (unlike RMS-from-mean sigma) it isn't itself inflated by the outliers
+    // it's used to screen for -- a minority cluster of bad samples barely
+    // moves it, since it only shifts where those samples land in sort order,
+    // not by how far off they are. RMS-from-mean sigma has a ~12.7%
+    // contamination breakdown point (a shared deviation among >=~13% of
+    // samples inflates sigma enough that all of them survive rejection,
+    // regardless of magnitude); MAD's breakdown point is 50%.
+    float deviations[MAX_SAMPLES];
     for (int i = 0; i < count; i++) {
-        sum += samples[i];
+        deviations[i] = fabsf(samples[i] - median);
     }
-    float mean = sum / count;
-
-    float sq_sum = 0;
-    for (int i = 0; i < count; i++) {
-        float diff = samples[i] - mean;
-        sq_sum += diff * diff;
+    float mad = median_inplace(deviations, count);
+    float threshold = OUTLIER_SIGMA_MULT * MAD_TO_SIGMA * mad;
+    if (threshold < MAD_ABS_FLOOR_CM) {
+        threshold = MAD_ABS_FLOOR_CM;
     }
-    float sigma = sqrtf(sq_sum / count);
 
-    // reject anything more than 3 sigma from the median, average the rest
+    // reject anything farther than threshold from the median, average the rest
     float clean_sum = 0;
     int clean_count = 0;
     for (int i = 0; i < count; i++) {
-        if (fabsf(samples[i] - median) <= OUTLIER_SIGMA_MULT * sigma) {
+        if (fabsf(samples[i] - median) <= threshold) {
             clean_sum += samples[i];
             clean_count++;
         }
@@ -115,7 +135,7 @@ float hcsr04_filter_samples(const float *samples, int count, float *out_std_cm) 
         float clean_sq_sum = 0;
         int clean_sq_count = 0;
         for (int i = 0; i < count; i++) {
-            if (fabsf(samples[i] - median) <= OUTLIER_SIGMA_MULT * sigma) {
+            if (fabsf(samples[i] - median) <= threshold) {
                 float diff = samples[i] - clean_mean;
                 clean_sq_sum += diff * diff;
                 clean_sq_count++;
@@ -140,17 +160,25 @@ bool hcsr04_measure_filtered_cm(int n, float *distance_cm, float *out_std_cm,
 
     for (int i = 0; i < n; i++) {
         float d;
-        if (hcsr04_measure_cm(&d)) {
+        bool ok = hcsr04_measure_cm(&d);
+        // HCSR04_MIN_PLAUSIBLE_CM: a ping below this is physically impossible
+        // for this tank's mounting, so it's dropped before it ever reaches
+        // outlier rejection -- cheaper and more certain than relying on
+        // statistics to catch it. out_samples stays fully raw regardless
+        // (diagnostic data shouldn't have this filtering baked in).
+        if (ok && d >= HCSR04_MIN_PLAUSIBLE_CM) {
             samples[valid++] = d;
+        }
+        if (out_samples) {
+            out_samples[i] = ok ? d : DISTANCE_SENTINEL_CM;
         }
         if (i < n - 1) {
             vTaskDelay(pdMS_TO_TICKS(SAMPLE_SPACING_MS));
         }
     }
 
-    if (out_samples) {
-        memcpy(out_samples, samples, valid * sizeof(float));
-        *out_sample_count = valid;
+    if (out_sample_count) {
+        *out_sample_count = n;
     }
 
     if (valid == 0) {

@@ -51,6 +51,16 @@
 // buffer forever -- the server rejects the whole batch atomically, so it's
 // never acknowledged/cleared, and every later reading piles up behind it.
 #define HCSR04_MAX_PLAUSIBLE_CM 500.0f
+
+// Minimum physically-possible sensor-to-water-surface distance for this
+// tank's mounting (sensor height above max fill level). Unlike
+// HCSR04_MAX_PLAUSIBLE_CM (applied once, to the final averaged distance),
+// this is applied per-raw-sample inside hcsr04_measure_filtered_cm(),
+// before outlier rejection even runs -- a ping below this is physically
+// impossible (water can't be that close), so it's cheaper and more certain
+// to drop it outright than to rely on statistics to catch it.
+#define HCSR04_MIN_PLAUSIBLE_CM 10.0f
+
 #define DISTANCE_SENTINEL_CM    -1.0f  // "no valid reading this wake" per device.md
 
 // --- Internal chip temperature sensor (ESP32C6 die/package, not ambient) ---

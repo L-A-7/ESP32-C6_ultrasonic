@@ -13,15 +13,35 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 ### Added
 - `readings[].samples_cm` (temporary, diagnostic-only): when
   `DEBUG_SEND_RAW_SAMPLES` (`config.h`, currently `1`) is enabled, the
-  current wake's raw pre-outlier-rejection HC-SR04 samples are attached to
-  the POST, to study real sample distributions offline and design a better
-  outlier filter (the existing median+3σ rejection isn't catching some false
-  points in the field). Only ever on the current reading, never on backlog
-  entries (raw samples aren't persisted to NVS). `hcsr04_measure_filtered_cm()`
+  current wake's HC-SR04 samples are attached to the POST, fully raw and
+  unfiltered — one entry per attempted ping (`avg_sample_count` long, nothing
+  dropped), with a failed ping (no echo / out of range) marked with the same
+  `-1.00` sentinel `distance_cm` uses, rather than being silently omitted.
+  Exists to study real sample distributions offline and design a better
+  outlier filter. Only ever on the current reading, never on backlog entries
+  (raw samples aren't persisted to NVS). `hcsr04_measure_filtered_cm()`
   gained optional `out_samples`/`out_sample_count` params to expose them;
   `wifi_post_measurement()` gained `raw_samples`/`raw_sample_count` params to
-  attach them. Meant to be flipped back to `0` once the filter redesign is
-  done — see `server-handoff/device.md` for the field's schema.
+  attach them. Meant to be flipped back to `0` once the filter redesign
+  below is validated in the field — see `server-handoff/device.md` for the
+  field's schema.
+- `HCSR04_MIN_PLAUSIBLE_CM` (`config.h`, `10cm`): a raw ping below this is
+  physically impossible for this tank's mounting, so it's now dropped before
+  it ever reaches outlier rejection, alongside the pre-existing echo-timeout
+  exclusion.
+
+### Changed
+- `hcsr04_filter_samples()`'s outlier rejection: median+RMS-from-mean-sigma
+  replaced with median+MAD (median absolute deviation). The old filter had a
+  sharp ~12.7% contamination breakdown point — proven algebraically and
+  matching field symptoms (`distance_std_cm` spiking to 10-30cm on bad wakes
+  vs. ~0.03cm on clean ones) — where a cluster of just a few bad samples
+  sharing a common deviation would inflate the RMS-from-mean sigma enough
+  that *all* of them survived rejection regardless of magnitude, dragging
+  the reported distance toward the wrong value. MAD isn't computed from the
+  outliers it's screening for, so it doesn't have that self-defeating
+  property; its breakdown point is 50%. See `server-handoff/device.md`'s "On-
+  device outlier filter" section for the full algorithm and rationale.
 
 ## 2026-08-02
 
