@@ -15,7 +15,7 @@ int wifi_get_rssi(void);
 // server infers each entry's timestamp by counting back from receipt time
 // in current_cfg->wakeup_period_min steps) plus current RSSI and config, as JSON.
 // raw_samples/raw_sample_count (optional, NULL/0 to omit) attach the current
-// wake's pre-filter HC-SR04 samples to just the current reading -- see
+// wake's pre-filter sensor samples to just the current reading -- see
 // DEBUG_SEND_RAW_SAMPLES in config.h. Backlog entries never carry raw
 // samples (only the aggregate is persisted).
 // If the response updates wakeup_period_min/avg_sample_count (individually

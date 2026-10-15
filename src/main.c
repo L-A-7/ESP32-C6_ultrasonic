@@ -8,7 +8,7 @@
 #include "config.h"
 #include "battery.h"
 #include "chip_temp.h"
-#include "sensor_hcsr04.h"
+#include "sensor_a02yyuw.h"
 #include "wifi_comm.h"
 #include "storage.h"
 
@@ -39,17 +39,17 @@ void app_main(void) {
     // DEBUG_SEND_RAW_SAMPLES (config.h): captures this wake's pre-filter
     // samples so they can be attached to the POST for offline filter-design
     // analysis. Temporary -- see config.h's comment on the flag.
-    static float s_raw_samples[HCSR04_MAX_SAMPLES];
+    static float s_raw_samples[A02_MAX_SAMPLES];
     int raw_sample_count = 0;
     float *raw_samples_out = DEBUG_SEND_RAW_SAMPLES ? s_raw_samples : NULL;
     int *raw_sample_count_out = DEBUG_SEND_RAW_SAMPLES ? &raw_sample_count : NULL;
 
-    if (!hcsr04_measure_filtered_cm(cfg.avg_sample_count, &m.distance_cm, &m.distance_std_cm,
-                                     raw_samples_out, raw_sample_count_out)) {
-        ESP_LOGW(TAG, "no echo (timeout) -- sending sentinel distance");
+    if (!a02_measure_filtered_cm(cfg.avg_sample_count, &m.distance_cm, &m.distance_std_cm,
+                                 raw_samples_out, raw_sample_count_out)) {
+        ESP_LOGW(TAG, "no valid sensor reading -- sending sentinel distance");
         m.distance_cm = DISTANCE_SENTINEL_CM;
         m.distance_std_cm = DISTANCE_SENTINEL_CM;
-    } else if (m.distance_cm < 0 || m.distance_cm > HCSR04_MAX_PLAUSIBLE_CM) {
+    } else if (m.distance_cm < 0 || m.distance_cm > DISTANCE_MAX_PLAUSIBLE_CM) {
         ESP_LOGW(TAG, "distance %.2f cm out of plausible range -- sending sentinel distance",
                  m.distance_cm);
         m.distance_cm = DISTANCE_SENTINEL_CM;

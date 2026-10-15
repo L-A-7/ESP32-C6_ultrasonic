@@ -1,6 +1,7 @@
 # Device API Contract — Water Tank Level Monitor
 
-Firmware: XIAO ESP32C6 + HC-SR04 ultrasonic sensor, battery powered, deep-sleep
+Firmware: XIAO ESP32C6 + A02YYUW waterproof ultrasonic sensor (UART output;
+replaced the original HC-SR04 in 2026-10 — wire format unchanged), battery powered, deep-sleep
 between wakes. This document is self-contained — it describes device behavior,
 not firmware source (the firmware lives in a separate repo).
 
@@ -55,10 +56,10 @@ batch is never acknowledged/cleared.
 `readings[].samples_cm`.** Gated behind `DEBUG_SEND_RAW_SAMPLES` in the
 firmware's `config.h`. When enabled, the *last* entry in `readings` (the
 current wake, never a backlog entry) carries an extra array of the fully
-raw, pre-outlier-rejection HC-SR04 samples for that wake — e.g.
-`"samples_cm": [50.52, 50.48, -1.00, 50.55, ...]`, always exactly
+raw, pre-outlier-rejection sensor samples for that wake — e.g.
+`"samples_cm": [50.5, 50.4, -1.00, 50.5, ...]`, always exactly
 `avg_sample_count` values long: one entry per attempted ping, in order,
-nothing dropped. A ping whose echo timed out or was out of range shows up as
+nothing dropped. A ping that failed (no valid frame from the sensor, or out of its range) shows up as
 `-1.00` (the same sentinel `distance_cm` uses) rather than being omitted —
 so a burst of failed pings is visible in the data, not silently invisible.
 This exists to let raw sample distributions be studied offline to design a
@@ -70,14 +71,14 @@ tolerate any other unknown field, per the note above.
 | Field | Type | Notes |
 |---|---|---|
 | `config.wakeup_period_min` | uint, minutes | Device's *current* wake interval (echoes back what it's running, doesn't necessarily match what you last told it — see Response below). |
-| `config.avg_sample_count` | uint | Device's current HC-SR04 sample count (median+MAD-filtered mean per wake — see below). |
+| `config.avg_sample_count` | uint | Device's current sensor sample count (median+MAD-filtered mean per wake — see below). |
 | `rssi` | int, dBm | WiFi signal strength of *this* connection only. Not present per-reading — there's no historical RSSI for backlog entries (no WiFi = no RSSI at the time they were queued). |
 | `readings` | array | Oldest first, **current reading is always last**. Array has 1 entry in the normal case; more than 1 when flushing a backlog after a WiFi outage (queue holds up to 192 entries / 48h at 15-min sampling, ring-buffer overwrite-oldest if exceeded). |
-| `readings[].distance_cm` | float, 2 decimals | Raw sensor distance. **Sentinel value `-1.00` means the HC-SR04 got no valid echo that wake** — filter/flag these, don't treat as a literal reading. |
-| `readings[].distance_std_cm` | float, 2 decimals | RMS deviation from the mean across the `avg_sample_count` HC-SR04 readings taken that wake, computed after the same median+MAD outlier rejection used for `distance_cm` (so it reflects the spread of the samples actually averaged in, not the raw noise floor) — see below. Sensor's physical accuracy is ~0.3cm, so values well below that reflect measurement consistency, not calibrated precision. **Shares `distance_cm`'s sentinel: `-1.00` whenever `distance_cm` is `-1.00`** (no echo / implausible range that wake) — treat both fields as sentinel together. |
+| `readings[].distance_cm` | float, 2 decimals | Raw sensor distance. **Sentinel value `-1.00` means the sensor gave no valid reading that wake** — filter/flag these, don't treat as a literal reading. |
+| `readings[].distance_std_cm` | float, 2 decimals | RMS deviation from the mean across the `avg_sample_count` sensor readings taken that wake, computed after the same median+MAD outlier rejection used for `distance_cm` (so it reflects the spread of the samples actually averaged in, not the raw noise floor) — see below. The sensor reports whole millimetres (so values are multiples of 0.1cm) with a datasheet accuracy of about ±1cm, so values well below that reflect measurement consistency, not calibrated precision. **Shares `distance_cm`'s sentinel: `-1.00` whenever `distance_cm` is `-1.00`** (no echo / implausible range that wake) — treat both fields as sentinel together. |
 | `readings[].battery_mv` | int | Battery voltage in mV (~3000-4200 for the single-cell LiPo in use). |
 | `readings[].chip_temp_c` | float, 2 decimals | ESP32-C6's internal **die/package temperature, not ambient** — self-heating from WiFi TX and CPU load typically reads several °C above actual ambient air/water temperature. Diagnostic/device-health signal only; not a substitute for a real ambient sensor. **Sentinel value `-999.00` means the on-chip sensor read failed** that wake (out of its configured -10..80°C range, or a driver error) — filter/flag these like the distance sentinel. |
-| `readings[].samples_cm` | array of float, 2 decimals | **TEMPORARY, diagnostic-only** (see note above) — only present on the current-wake reading, never on backlog entries, and only when the firmware's `DEBUG_SEND_RAW_SAMPLES` is enabled. Fully raw per-ping distances, before outlier rejection/averaging, one entry per attempted ping (`avg_sample_count` long) with no drops — failed pings (no echo / out of range) appear as `-1.00`, the same sentinel `distance_cm` uses. |
+| `readings[].samples_cm` | array of float, 2 decimals | **TEMPORARY, diagnostic-only** (see note above) — only present on the current-wake reading, never on backlog entries, and only when the firmware's `DEBUG_SEND_RAW_SAMPLES` is enabled. Fully raw per-ping distances, before outlier rejection/averaging, one entry per attempted ping (`avg_sample_count` long) with no drops — failed pings (no valid reading / out of range) appear as `-1.00`, the same sentinel `distance_cm` uses. |
 
 ### On-device outlier filter (median + MAD)
 
@@ -85,13 +86,13 @@ This is the filter that turns `samples_cm` (raw, one entry per attempted
 ping) into `distance_cm`/`distance_std_cm` (one filtered value per wake). It
 runs on-device, once per wake, over that wake's `avg_sample_count` pings —
 `config.avg_sample_count`/`n` below is that same value. Exact algorithm
-(`hcsr04_filter_samples()` in the firmware; the low-end floor in step 0 is
-`hcsr04_measure_filtered_cm()`, one level up):
+(`a02_filter_samples()` in the firmware; the low-end floor in step 0 is
+`a02_measure_filtered_cm()`, one level up):
 
-0. Before this filter even runs: any raw ping below `HCSR04_MIN_PLAUSIBLE_CM`
+0. Before this filter even runs: any raw ping below `DISTANCE_MIN_PLAUSIBLE_CM`
    (currently 10cm — this tank's minimum physically-possible sensor-to-water
    distance at max fill) is dropped outright, alongside the pre-existing
-   echo-timeout/out-of-range exclusion. Both are cheaper and more certain
+   no-reading/out-of-range exclusion. Both are cheaper and more certain
    than relying on statistics to catch a physically-impossible reading; see
    the `samples_cm` sentinel note above for how excluded pings show up in
    the raw array (unaffected by this floor — it's fully raw).
@@ -103,7 +104,7 @@ runs on-device, once per wake, over that wake's `avg_sample_count` pings —
    *Why MAD, not RMS-from-mean* below).
 3. `threshold = max(3 * 1.4826 * mad, 1.0cm)`. The `1.4826` constant scales
    MAD to be comparable to a normal distribution's sigma; the `1.0cm` floor
-   exists because the sensor's real per-ping noise is sub-mm, which can
+   exists because the sensor's real per-ping noise is around its 1mm resolution, which can
    otherwise collapse `mad` to ~0 and make the threshold reject everything
    but an exact median match.
 4. Keep every sample within `threshold` of the `median`; reject the rest.

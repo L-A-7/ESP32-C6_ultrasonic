@@ -5,12 +5,12 @@
 
 typedef struct {
     uint32_t wakeup_period_min;
-    uint32_t avg_sample_count;  // HC-SR04 readings averaged (median) per wake
+    uint32_t avg_sample_count;  // sensor readings averaged (median) per wake
 } tank_config_t;
 
 typedef struct {
     float distance_cm;
-    float distance_std_cm;  // spread across the avg_sample_count HC-SR04 readings this wake
+    float distance_std_cm;  // spread across the avg_sample_count sensor readings this wake
     int battery_mv;
     float chip_temp_c;
 } pending_measurement_t;

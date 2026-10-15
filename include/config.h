@@ -11,12 +11,18 @@
 #define WIFI_ANT_ENABLE_GPIO  GPIO_NUM_3
 #define WIFI_ANT_CONFIG_GPIO  GPIO_NUM_14
 
-// --- HC-SR04 ultrasonic sensor ---
-// VCC wired to BAT+ (not the 5V/VUSB pin -- that's unpowered on battery).
-// ECHO divider is 1k (top, from ECHO) + 3k (bottom, to GND): sized for
-// ECHO's HIGH level tracking BAT+ (~3.0-4.2V), not a fixed 5V.
-#define HCSR04_TRIG_GPIO   GPIO_NUM_16  // D6
-#define HCSR04_ECHO_GPIO   GPIO_NUM_17  // D7
+// --- A02YYUW ultrasonic sensor (DFRobot SEN0311, UART output) ---
+// VCC wired to the 3V3 pin (sensor rated 3.3-5V; BAT+ sags below that on a
+// low cell). Sensor TX -> D7 through a 1k series resistor (leftover from the
+// HC-SR04's level-shifting divider; harmless at 9600 baud). Sensor RX is a
+// mode select, not a UART input: low = real-time output (~100ms/frame),
+// high/floating = the sensor's own processed output (~100-300ms/frame).
+#define A02_UART_NUM       UART_NUM_1   // UART0 is the console
+#define A02_TX_GPIO        GPIO_NUM_17  // D7, sensor TX -> ESP32 RX
+#define A02_MODE_GPIO      GPIO_NUM_16  // D6, drives the sensor's RX pin
+// Real-time mode: independent raw readings, filtered on our side by
+// a02_filter_samples() (and visible as-is in DEBUG_SEND_RAW_SAMPLES).
+#define A02_REALTIME_MODE  1
 // V2: MOSFET-switched VCC gated by GPIO21 (D3), reserved/unused in V1.
 
 // --- Battery voltage divider (~1MOhm / 1MOhm), tapped from BAT+ ---
@@ -31,13 +37,13 @@
 #define MAX_WAKEUP_PERIOD_MIN           1440  // 24h
 
 // --- Measurement ---
-#define DEFAULT_AVG_SAMPLE_COUNT 30  // median+3sigma-filtered mean of N HC-SR04 readings per wake
+#define DEFAULT_AVG_SAMPLE_COUNT 30  // median+3sigma-filtered mean of N sensor readings per wake
 #define MIN_AVG_SAMPLE_COUNT     1
-#define MAX_AVG_SAMPLE_COUNT     100  // config-field validation range; see HCSR04_MAX_SAMPLES
-                                        // in sensor_hcsr04.c for the firmware's tighter sampling cap
+#define MAX_AVG_SAMPLE_COUNT     100  // config-field validation range; see A02_MAX_SAMPLES
+                                        // in sensor_a02yyuw.c for the firmware's tighter sampling cap
 
 // Diagnostic capture: when enabled, the current wake's raw (pre-outlier-
-// -rejection) HC-SR04 samples are attached to the POST as
+// -rejection) sensor samples are attached to the POST as
 // "readings[current].samples_cm" so they can be studied offline to design a
 // better outlier filter. Backlog entries never carry raw samples (only the
 // aggregate is persisted to NVS). TEMPORARY -- flip back to 0 once the
@@ -50,16 +56,16 @@
 // this, a single implausible reading gets stuck at the head of the pending
 // buffer forever -- the server rejects the whole batch atomically, so it's
 // never acknowledged/cleared, and every later reading piles up behind it.
-#define HCSR04_MAX_PLAUSIBLE_CM 500.0f
+#define DISTANCE_MAX_PLAUSIBLE_CM 500.0f
 
 // Minimum physically-possible sensor-to-water-surface distance for this
 // tank's mounting (sensor height above max fill level). Unlike
-// HCSR04_MAX_PLAUSIBLE_CM (applied once, to the final averaged distance),
-// this is applied per-raw-sample inside hcsr04_measure_filtered_cm(),
-// before outlier rejection even runs -- a ping below this is physically
+// DISTANCE_MAX_PLAUSIBLE_CM (applied once, to the final averaged distance),
+// this is applied per-raw-sample inside a02_measure_filtered_cm(),
+// before outlier rejection even runs -- a reading below this is physically
 // impossible (water can't be that close), so it's cheaper and more certain
 // to drop it outright than to rely on statistics to catch it.
-#define HCSR04_MIN_PLAUSIBLE_CM 10.0f
+#define DISTANCE_MIN_PLAUSIBLE_CM 10.0f
 
 #define DISTANCE_SENTINEL_CM    -1.0f  // "no valid reading this wake" per device.md
 

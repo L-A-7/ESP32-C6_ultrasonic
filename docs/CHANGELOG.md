@@ -10,6 +10,20 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## Unreleased
 
+### Changed
+- Sensor swapped from HC-SR04 to A02YYUW (waterproof, UART output). Wiring:
+  sensor VCC moved to 3V3, sensor TX → D7/GPIO17 through the existing 1kΩ
+  (the 3kΩ pull-down from the old ECHO divider was removed), sensor RX (mode
+  select) ← D6/GPIO16. `sensor_hcsr04.{c,h}` became `sensor_a02yyuw.{c,h}`:
+  readings now come from 9600-baud frames on UART1 (checksum-verified,
+  resync on the `0xFF` header) instead of timing an echo pulse. The
+  median+MAD filter is unchanged. The sensor runs in real-time mode
+  (`A02_REALTIME_MODE`) so filtering stays on our side. If the first frame
+  never arrives, the remaining readings are skipped instead of each waiting
+  out its timeout. `HCSR04_MIN/MAX_PLAUSIBLE_CM` renamed
+  `DISTANCE_MIN/MAX_PLAUSIBLE_CM`. Wire format unchanged; distances now come
+  in whole millimetres.
+
 ### Added
 - `readings[].samples_cm` (temporary, diagnostic-only): when
   `DEBUG_SEND_RAW_SAMPLES` (`config.h`, currently `1`) is enabled, the
